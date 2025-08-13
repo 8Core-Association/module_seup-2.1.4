@@ -1098,127 +1098,11 @@ $db->close();
       const naziv = document.getElementById("naziv").value;
 
       // Get elements related to Stranka field
-      const strankaCheckbox = document.getElementById('strankaCheck');
-      const strankaField = document.getElementById('stranka');
-      const strankaError = document.getElementById('strankaError');
-
-      // Reset any previous error states
-      strankaField.classList.remove('is-invalid');
-      strankaError.style.display = 'none';
-
-      // 1. VALIDATION FOR ALL REQUIRED FIELDS
-      let isValid = true;
-      const missingFields = [];
-
-      // Check each required field
-      if (!klasa) missingFields.push("Klasa broj");
-      if (!sadrzaj) missingFields.push("Sadržaj");
-      if (!dosje) missingFields.push("Dosje broj");
-      if (!zaposlenik) missingFields.push("Zaposlenik");
-      if (!naziv.trim()) missingFields.push("Naziv predmeta");
-
-      const strankaDateError = document.getElementById('strankaDateError');
-      if (strankaDateError) {
-        strankaDateError.style.display = 'none';
-      }
-
-      // 2. SPECIAL VALIDATION FOR STRANKA FIELD
-      if (strankaCheckbox.checked) {
-        if (!strankaField.value) {
-          isValid = false;
-          strankaField.classList.add('is-invalid');
-          strankaError.style.display = 'block';
-          strankaField.focus();
-        }
-
-        // Validate date for Stranka
-        const strankaDateInput = document.querySelector('input[name="strankaDatumOtvaranja"]');
-        if (!strankaDateInput || !strankaDateInput.value) {
-          isValid = false;
-          // Show date error
-          if (strankaDateError) {
-            strankaDateError.style.display = 'block';
-          } else {
-            // Create error element if it doesn't exist
-            const errorDiv = document.createElement('div');
-            errorDiv.id = 'strankaDateError';
-            errorDiv.className = 'seup-field-error';
-            errorDiv.textContent = 'Odaberite datum otvaranja predmeta!';
-            errorDiv.style.display = 'block';
-            document.querySelector('#strankaDatumContainer').appendChild(errorDiv);
-          }
-        }
-      }
-
-      // 3. CHECK IF ANY REQUIRED FIELDS ARE MISSING
-      if (missingFields.length > 0) {
-        isValid = false;
-        // Create alert message listing all missing fields
-        const errorMessage = "Molimo vas da popunite sva obavezna polja:\n\n" +
-          missingFields.map(field => `- ${field}`).join("\n");
-        alert(errorMessage);
-      }
-
-      // 4. STOP IF VALIDATION FAILED
-      if (!isValid) {
-        return;
-      }
-      const formData = new FormData();
-      formData.append("action", "otvori_predmet");
-      formData.append("klasa_br", klasa);
-      formData.append("sadrzaj", sadrzaj);
-      formData.append("dosje_broj", dosje);
-      formData.append("zaposlenik", zaposlenik);
-      formData.append("god", year);
-      formData.append("naziv", naziv);
-
-      // Add Stranka value if checkbox is checked
-      if (strankaCheckbox.checked) {
-        formData.append("stranka", strankaField.value.trim());
-        const strankaDateInput = document.querySelector('input[name="strankaDatumOtvaranja"]');
-
-        if (strankaDateInput && strankaDateInput.value) {
-          // Parse the date from DD.MM.YYYY to YYYY-MM-DD
-          const [day, month, year] = strankaDateInput.value.split('.');
-          const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          formData.append("strankaDatumOtvaranja", formattedDate);
-        }
-      }
-
-      // Get date value and convert to timestamp
-      const datumInput = document.querySelector('input[name="datumOtvaranja"]');
-      let datumOtvaranjaTimestamp = null;
-
-      if (datumInput && datumInput.value) {
-        // Parse the date from DD.MM.YYYY to YYYY-MM-DD
-        const [day, month, year] = datumInput.value.split('.');
-        const now = new Date();
-        datumOtvaranjaTimestamp =
-          `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ` +
-          `${now.getHours().toString().padStart(2, '0')}:` +
-          `${now.getMinutes().toString().padStart(2, '0')}:` +
-          `${now.getSeconds().toString().padStart(2, '0')}`;
-      } else {
-        const now = new Date();
-        datumOtvaranjaTimestamp =
-          `${now.getFullYear()}-` +
-          `${(now.getMonth() + 1).toString().padStart(2, '0')}-` +
-          `${now.getDate().toString().padStart(2, '0')} ` +
-          `${now.getHours().toString().padStart(2, '0')}:` +
-          `${now.getMinutes().toString().padStart(2, '0')}:` +
-          `${now.getSeconds().toString().padStart(2, '0')}`;
-      }
-
-      formData.append("datumOtvaranja", datumOtvaranjaTimestamp);
-
-      // Add selected tags
-      selectedTags.forEach(tagId => {
-        formData.append("tags[]", tagId);
-      });
-
-      fetch("novi_predmet.php", {
-          method: "POST",
-          body: formData
+    // Tags Modal functionality
+    const openTagsModalBtn = document.getElementById("openTagsModal");
+    if (openTagsModalBtn) {
+      openTagsModalBtn.addEventListener("click", openTagsModal);
+    }
 
     // Remove tag from selection
     if (selectedTagsContainer) {
@@ -1245,6 +1129,167 @@ $db->close();
     }
   });
 
+  // Tags Modal Functions
+  let modalSelectedTags = new Set();
+  
+  function openTagsModal() {
+    const modal = document.getElementById('tagsModal');
+    const container = document.getElementById('tagsGridContainer');
+    
+    // Copy current selection to modal
+    modalSelectedTags = new Set(selectedTags);
+    
+    // Load available tags from PHP
+    const availableTags = <?php echo json_encode($tags); ?>;
+    
+    // Clear and populate container
+    container.innerHTML = '';
+    
+    availableTags.forEach(tag => {
+      const tagElement = document.createElement('div');
+      tagElement.className = 'tag-option-modal';
+      tagElement.dataset.tagId = tag.rowid;
+      tagElement.innerHTML = `
+        <i class="fas fa-tag"></i>
+        ${tag.tag}
+      `;
+      
+      if (modalSelectedTags.has(tag.rowid.toString())) {
+        tagElement.classList.add('selected');
+      }
+      
+      tagElement.addEventListener('click', () => {
+        toggleModalTag(tag.rowid.toString(), tagElement);
+      });
+      
+      container.appendChild(tagElement);
+    });
+    
+    updateSelectedCount();
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Focus search input
+    setTimeout(() => {
+      document.getElementById('tagsSearchInput').focus();
+    }, 100);
+  }
+  
+  function closeTagsModal() {
+    const modal = document.getElementById('tagsModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  
+  function toggleModalTag(tagId, element) {
+    if (modalSelectedTags.has(tagId)) {
+      modalSelectedTags.delete(tagId);
+      element.classList.remove('selected');
+    } else {
+      modalSelectedTags.add(tagId);
+      element.classList.add('selected');
+    }
+    updateSelectedCount();
+  }
+  
+  function updateSelectedCount() {
+    const countElement = document.getElementById('selectedCount');
+    if (countElement) {
+      const count = modalSelectedTags.size;
+      countElement.textContent = `${count} odabrano`;
+    }
+  }
+  
+  function confirmTagSelection() {
+    // Update main selection
+    selectedTags.clear();
+    modalSelectedTags.forEach(tagId => selectedTags.add(tagId));
+    
+    // Update main display
+    updateMainTagsDisplay();
+    
+    // Close modal
+    closeTagsModal();
+  }
+  
+  function updateMainTagsDisplay() {
+    const container = document.getElementById('selected-tags');
+    const placeholder = document.getElementById('tags-placeholder');
+    const availableTags = <?php echo json_encode($tags); ?>;
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    if (selectedTags.size === 0) {
+      container.innerHTML = '<span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>';
+      return;
+    }
+    
+    selectedTags.forEach(tagId => {
+      const tag = availableTags.find(t => t.rowid.toString() === tagId);
+      if (tag) {
+        const color = tagColors[colorIndex % tagColors.length];
+        colorIndex++;
+        
+        const tagElement = document.createElement('div');
+        tagElement.className = `seup-tag seup-tag-removable seup-tag-${color.name}`;
+        tagElement.dataset.tagId = tagId;
+        tagElement.style.background = color.bg;
+        tagElement.style.color = color.text;
+        tagElement.style.borderColor = color.border;
+        
+        tagElement.innerHTML = `
+          <i class="fas fa-tag"></i>
+          <span class="tag-text">${tag.tag}</span>
+          <button type="button" class="seup-tag-remove" aria-label="Remove">
+            <i class="fas fa-times" style="font-size: 0.7rem;"></i>
+          </button>
+        `;
+        
+        container.appendChild(tagElement);
+      }
+    });
+  }
+  
+  // Search functionality for modal
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('tagsSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const tagElements = document.querySelectorAll('.tag-option-modal');
+        
+        tagElements.forEach(element => {
+          const tagName = element.textContent.toLowerCase();
+          if (tagName.includes(searchTerm)) {
+            element.style.display = 'flex';
+          } else {
+            element.style.display = 'none';
+          }
+        });
+      });
+    }
+    
+    // Close modal on overlay click
+    const modal = document.getElementById('tagsModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target.classList.contains('tags-modal-overlay')) {
+          closeTagsModal();
+        }
+      });
+    }
+    
+    // Escape key to close modal
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('tagsModal');
+        if (modal && modal.style.display === 'flex') {
+          closeTagsModal();
+        }
+      }
+    });
+  });
   // Tags Modal Functions
   window.openTagsModal = function() {
     const modal = document.getElementById('tagsModal');
