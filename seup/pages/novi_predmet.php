@@ -285,22 +285,10 @@ $htmlContent = <<<HTML
                     
                     <div class="seup-form-group">
                         <label class="seup-label">{$langs->trans('Oznake')}</label>
-                        <div class="seup-flex seup-gap-2" style="margin-bottom: var(--seup-space-3);">
-                            <div class="seup-dropdown" style="flex: 1;">
-                                <button class="seup-btn seup-btn-secondary" type="button" id="tagsDropdown" style="width: 100%; justify-content: space-between;">
-                                    <span>Odaberi oznake</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                                <div class="seup-dropdown-menu" id="tags-dropdown-menu" style="display: none;">
-                                    <div class="available-tags-container" id="available-tags">
-                                        {$availableTagsHTML}
-                                    </div>
-                                </div>
-                            </div>
-                            <button class="seup-btn seup-btn-primary" type="button" id="add-tag-btn">
-                                <i class="fas fa-plus"></i> Dodaj
-                            </button>
-                        </div>
+                        <button class="seup-btn seup-btn-secondary" type="button" id="openTagsModal" style="width: 100%; justify-content: space-between; margin-bottom: var(--seup-space-3);">
+                            <span><i class="fas fa-tags"></i> Odaberi oznake</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                         <div class="selected-tags-container" id="selected-tags">
                             <span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>
                         </div>
@@ -344,6 +332,40 @@ print '<div class="seup-modal-footer">';
 print '<button type="button" class="seup-btn seup-btn-secondary" id="todayBtn">Danas</button>';
 print '<button type="button" class="seup-btn seup-btn-secondary" id="clearDateBtn">Očisti</button>';
 print '<button type="button" class="seup-btn seup-btn-primary" id="confirmDateBtn">Potvrdi</button>';
+print '</div>';
+print '</div>';
+print '</div>';
+
+// Tags Modal
+print '<div id="tagsModal" class="seup-modal" style="display: none;">';
+print '<div class="seup-modal-overlay"></div>';
+print '<div class="seup-modal-content" style="max-width: 600px;">';
+print '<div class="seup-modal-header">';
+print '<h3 class="seup-modal-title"><i class="fas fa-tags"></i> Odaberi Oznake</h3>';
+print '<button type="button" class="seup-modal-close" id="closeTagsModal">';
+print '<i class="fas fa-times"></i>';
+print '</button>';
+print '</div>';
+print '<div class="seup-modal-body">';
+print '<div class="seup-form-group">';
+print '<div style="position: relative;">';
+print '<input type="text" class="seup-input" placeholder="Pretraži oznake..." id="searchTagsInput" style="padding-left: var(--seup-space-10);">';
+print '<i class="fas fa-search" style="position: absolute; left: var(--seup-space-3); top: 50%; transform: translateY(-50%); color: var(--seup-gray-400);"></i>';
+print '</div>';
+print '</div>';
+print '<div id="tagsGrid" class="seup-grid seup-grid-3" style="max-height: 300px; overflow-y: auto;">';
+// Tags will be populated by JavaScript
+print '</div>';
+print '</div>';
+print '<div class="seup-modal-footer">';
+print '<div class="seup-flex seup-items-center seup-gap-2">';
+print '<i class="fas fa-check-circle" style="color: var(--seup-success);"></i>';
+print '<span id="selectedTagsCount">0 odabrano</span>';
+print '</div>';
+print '<div class="seup-flex seup-gap-2">';
+print '<button type="button" class="seup-btn seup-btn-secondary" id="cancelTagsBtn">Odustani</button>';
+print '<button type="button" class="seup-btn seup-btn-primary" id="confirmTagsBtn">Potvrdi</button>';
+print '</div>';
 print '</div>';
 print '</div>';
 print '</div>';
@@ -1100,15 +1122,7 @@ $db->close();
             
             // Reset selected tags
             selectedTags.clear();
-            selectedTagsContainer.innerHTML = '<span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>';
-            
-            // Reset tag dropdown
-            const buttonText = tagsDropdown.querySelector('span');
-            buttonText.textContent = 'Odaberi oznake';
-            selectedOption = null;
-            document.querySelectorAll('.tag-option').forEach(btn => {
-              btn.classList.remove('active');
-            });
+            tagsModal.updateSelectedTagsDisplay();
           } else {
             console.error("Error otvaranje predmeta NOVI_PREDMET:", data.error);
             alert("Greška pri otvaranju predmeta: NOVI_PREDMET " + data.error);
@@ -1159,127 +1173,195 @@ $db->close();
     
     let colorIndex = 0;
 
-    // Track selected option
-    let selectedOption = null;
-
-    // Enhanced dropdown functionality
-    if (tagsDropdown) {
-      tagsDropdown.addEventListener("click", function(e) {
-        e.preventDefault();
-        const isOpen = tagsDropdownMenu.style.display === 'block';
-        tagsDropdownMenu.style.display = isOpen ? 'none' : 'block';
+    
+    // Tags Modal Implementation
+    class SEUPTagsModal {
+      constructor() {
+        this.modal = document.getElementById('tagsModal');
+        this.tagsGrid = document.getElementById('tagsGrid');
+        this.searchInput = document.getElementById('searchTagsInput');
+        this.selectedTagsCount = document.getElementById('selectedTagsCount');
+        this.availableTags = <?php echo json_encode($tags); ?>;
+        this.tempSelectedTags = new Set();
         
-        // Animate dropdown
-        if (!isOpen) {
-          tagsDropdownMenu.style.opacity = '0';
-          tagsDropdownMenu.style.transform = 'translateY(-10px)';
-          setTimeout(() => {
-            tagsDropdownMenu.style.opacity = '1';
-            tagsDropdownMenu.style.transform = 'translateY(0)';
-          }, 10);
-        }
-        
-        // Update chevron icon
-        const chevron = tagsDropdown.querySelector('.fas');
-        if (chevron) {
-          chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-        }
-      });
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener("click", function(e) {
-      if (!e.target.closest('.seup-dropdown') && tagsDropdownMenu) {
-        tagsDropdownMenu.style.display = 'none';
-        const chevron = tagsDropdown?.querySelector('.fas');
-        if (chevron) {
-          chevron.style.transform = 'rotate(0deg)';
-        }
+        this.init();
       }
-    });
-
-    if (availableTags) {
-      availableTags.addEventListener("click", function(e) {
-        if (e.target.classList.contains("tag-option")) {
-          // Remove active class from all options
-          document.querySelectorAll('.tag-option').forEach(btn => {
-            btn.classList.remove('active');
-          });
-
-          // Set active class on clicked option
-          e.target.classList.add('active');
-          selectedOption = e.target;
-
-          // Update dropdown button text
-          const buttonText = tagsDropdown.querySelector('span');
-          if (buttonText) {
-            buttonText.textContent = e.target.textContent;
+      
+      init() {
+        // Open modal button
+        document.getElementById('openTagsModal').addEventListener('click', () => {
+          this.show();
+        });
+        
+        // Close modal events
+        document.getElementById('closeTagsModal').addEventListener('click', () => this.hide());
+        document.getElementById('cancelTagsBtn').addEventListener('click', () => this.hide());
+        document.querySelector('.seup-modal-overlay').addEventListener('click', () => this.hide());
+        
+        // Confirm selection
+        document.getElementById('confirmTagsBtn').addEventListener('click', () => this.confirmSelection());
+        
+        // Search functionality
+        this.searchInput.addEventListener('input', (e) => this.filterTags(e.target.value));
+        
+        // Escape key to close
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && this.modal.style.display === 'flex') {
+            this.hide();
           }
+        });
+      }
+      
+      show() {
+        // Copy current selection to temp
+        this.tempSelectedTags = new Set(selectedTags);
+        
+        this.modal.style.display = 'flex';
+        this.renderTags();
+        this.updateSelectedCount();
+        
+        // Focus search input
+        setTimeout(() => {
+          this.searchInput.focus();
+        }, 100);
+      }
+      
+      hide() {
+        this.modal.style.display = 'none';
+        this.searchInput.value = '';
+      }
+      
+      renderTags() {
+        this.tagsGrid.innerHTML = '';
+        
+        if (this.availableTags.length === 0) {
+          this.tagsGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: var(--seup-space-8); color: var(--seup-gray-500);">
+              <i class="fas fa-tags" style="font-size: 2rem; margin-bottom: var(--seup-space-2);"></i>
+              <p>Nema dostupnih oznaka</p>
+              <p style="font-size: 0.875rem;">Dodajte oznake u <a href="tagovi.php">upravljanju oznakama</a></p>
+            </div>
+          `;
+          return;
         }
-      });
-    }
-
-    // Add tag to selection
-    if (addTagBtn) {
-      addTagBtn.addEventListener("click", function() {
-        if (!selectedOption) return;
-
-        const tagId = selectedOption.dataset.tagId;
-        const tagName = selectedOption.textContent;
-
-        if (!selectedTags.has(tagId)) {
-          selectedTags.add(tagId);
+        
+        this.availableTags.forEach((tag, index) => {
+          const color = tagColors[index % tagColors.length];
+          const isSelected = this.tempSelectedTags.has(tag.rowid.toString());
           
-          // Hide placeholder if this is the first tag
-          if (tagsPlaceholder) {
-            tagsPlaceholder.style.display = 'none';
-          }
-          
-          // Get color for this tag
-          const color = tagColors[colorIndex % tagColors.length];
-          colorIndex++;
-
-          // Create selected tag badge
-          const tagElement = document.createElement("div");
-          tagElement.className = `seup-tag seup-tag-removable seup-tag-${color.name} seup-fade-in`;
-          tagElement.dataset.tagId = tagId;
-          tagElement.style.background = color.bg;
-          tagElement.style.color = color.text;
+          const tagElement = document.createElement('div');
+          tagElement.className = `seup-tag-option-modal ${isSelected ? 'selected' : ''}`;
+          tagElement.dataset.tagId = tag.rowid;
+          tagElement.dataset.tagName = tag.tag.toLowerCase();
           tagElement.style.borderColor = color.border;
           
+          if (isSelected) {
+            tagElement.style.background = color.bg;
+            tagElement.style.color = color.text;
+          }
+          
           tagElement.innerHTML = `
-            <i class="fas fa-tag"></i>
-            <span class="tag-text">${tagName}</span>
-            <button type="button" class="seup-tag-remove" aria-label="Remove">
-              <i class="fas fa-times" style="font-size: 0.7rem;"></i>
-            </button>
+            <i class="fas fa-tag" style="color: ${color.border};"></i>
+            ${tag.tag}
           `;
-
-          selectedTagsContainer.appendChild(tagElement);
           
-          // Add entrance animation
-          setTimeout(() => {
-            tagElement.style.transform = 'scale(1)';
-            tagElement.style.opacity = '1';
-          }, 10);
-
-          // Reset selection
-          selectedOption.classList.remove('active');
-          selectedOption = null;
+          tagElement.addEventListener('click', () => {
+            this.toggleTag(tag.rowid.toString(), tag.tag, tagElement, color);
+          });
           
-          const buttonText = tagsDropdown.querySelector('span');
-          if (buttonText) {
-            buttonText.textContent = 'Odaberi oznake';
-          }
-          tagsDropdownMenu.style.display = 'none';
-          
-          const chevron = tagsDropdown.querySelector('.fas');
-          if (chevron) {
-            chevron.style.transform = 'rotate(0deg)';
-          }
+          this.tagsGrid.appendChild(tagElement);
+        });
+      }
+      
+      toggleTag(tagId, tagName, element, color) {
+        if (this.tempSelectedTags.has(tagId)) {
+          this.tempSelectedTags.delete(tagId);
+          element.classList.remove('selected');
+          element.style.background = '';
+          element.style.color = '';
+        } else {
+          this.tempSelectedTags.add(tagId);
+          element.classList.add('selected');
+          element.style.background = color.bg;
+          element.style.color = color.text;
         }
-      });
+        
+        this.updateSelectedCount();
+      }
+      
+      updateSelectedCount() {
+        const count = this.tempSelectedTags.size;
+        this.selectedTagsCount.textContent = `${count} odabrano`;
+      }
+      
+      filterTags(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const tagElements = this.tagsGrid.querySelectorAll('.seup-tag-option-modal');
+        
+        tagElements.forEach(element => {
+          const tagName = element.dataset.tagName;
+          if (tagName.includes(term)) {
+            element.style.display = 'flex';
+          } else {
+            element.style.display = 'none';
+          }
+        });
+      }
+      
+      confirmSelection() {
+        // Update global selectedTags
+        selectedTags.clear();
+        this.tempSelectedTags.forEach(tagId => selectedTags.add(tagId));
+        
+        // Update display
+        this.updateSelectedTagsDisplay();
+        
+        this.hide();
+        
+        // Show success message
+        if (window.seupNotifications) {
+          window.seupNotifications.show(`Odabrano ${selectedTags.size} oznaka`, 'success', 2000);
+        }
+      }
+      
+      updateSelectedTagsDisplay() {
+        selectedTagsContainer.innerHTML = '';
+        
+        if (selectedTags.size === 0) {
+          selectedTagsContainer.innerHTML = '<span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>';
+          return;
+        }
+        
+        let colorIndex = 0;
+        selectedTags.forEach(tagId => {
+          const tag = this.availableTags.find(t => t.rowid.toString() === tagId);
+          if (tag) {
+            const color = tagColors[colorIndex % tagColors.length];
+            colorIndex++;
+            
+            const tagElement = document.createElement("div");
+            tagElement.className = `seup-tag seup-tag-removable seup-tag-${color.name} seup-fade-in`;
+            tagElement.dataset.tagId = tagId;
+            tagElement.style.background = color.bg;
+            tagElement.style.color = color.text;
+            tagElement.style.borderColor = color.border;
+            
+            tagElement.innerHTML = `
+              <i class="fas fa-tag"></i>
+              <span class="tag-text">${tag.tag}</span>
+              <button type="button" class="seup-tag-remove" aria-label="Remove">
+                <i class="fas fa-times" style="font-size: 0.7rem;"></i>
+              </button>
+            `;
+            
+            selectedTagsContainer.appendChild(tagElement);
+          }
+        });
+      }
     }
+    
+    // Initialize tags modal
+    const tagsModal = new SEUPTagsModal();
 
     // Remove tag from selection
     if (selectedTagsContainer) {
