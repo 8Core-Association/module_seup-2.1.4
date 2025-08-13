@@ -285,22 +285,10 @@ $htmlContent = <<<HTML
                     
                     <div class="seup-form-group">
                         <label class="seup-label">{$langs->trans('Oznake')}</label>
-                        <button class="seup-btn seup-btn-secondary" type="button" id="openTagsModal" style="width: 100%; justify-content: space-between; margin-bottom: var(--seup-space-3);">
-                            <span><i class="fas fa-tags"></i> Odaberi oznake</span>
-                            <i class="fas fa-chevron-right"></i>
+                        <button class="seup-btn seup-btn-secondary" type="button" onclick="openTagsModal()" style="width: 100%; justify-content: space-between; margin-bottom: var(--seup-space-3);">
+                            <span>Odaberi oznake</span>
+                            <i class="fas fa-tags"></i>
                         </button>
-                        <div class="selected-tags-container" id="selected-tags">
-                            <span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    
-        <div class="seup-card-footer">
-            <div class="seup-flex seup-justify-between seup-items-center">
-                <div class="seup-text-small" style="color: var(--seup-gray-500);">
-                    <i class="fas fa-info-circle"></i> Sva polja označena * su obavezna
                 </div>
                 <button type="button" class="seup-btn seup-btn-primary seup-btn-lg seup-interactive" id="otvoriPredmetBtn">
                     <i class="fas fa-plus"></i> Otvori Predmet
@@ -385,6 +373,174 @@ print '<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/sele
 print '<script src="/custom/seup/js/seup-modern.js"></script>';
 print '<script src="/custom/seup/js/seup-enhanced.js"></script>';
 
+// Tags Modal HTML
+print '<div id="tagsModal" class="seup-tags-modal">';
+print '<div class="seup-tags-modal-content">';
+print '<div class="seup-tags-modal-header">';
+print '<h3 class="seup-tags-modal-title">';
+print '<i class="fas fa-tags"></i> Odaberi Oznake';
+print '</h3>';
+print '<button class="seup-tags-modal-close" onclick="closeTagsModal()">';
+print '<i class="fas fa-times"></i>';
+print '</button>';
+print '</div>';
+print '<div class="seup-tags-modal-body">';
+print '<div class="seup-tags-search">';
+print '<div style="position: relative;">';
+print '<input type="text" class="seup-input" placeholder="Pretraži oznake..." id="tagsSearchInput">';
+print '<i class="fas fa-search seup-tags-search-icon"></i>';
+print '</div>';
+print '</div>';
+print '<div id="tagsGridContainer" class="seup-tags-grid-modal">';
+print '<!-- Tags will be loaded here -->';
+print '</div>';
+print '</div>';
+print '<div class="seup-tags-modal-footer">';
+print '<div class="seup-tags-count">';
+print '<i class="fas fa-check-circle"></i>';
+print '<span id="selectedCount">0 odabrano</span>';
+print '</div>';
+print '<div class="seup-flex seup-gap-2">';
+print '<button class="seup-btn seup-btn-secondary" onclick="closeTagsModal()">';
+print '<i class="fas fa-times"></i> Odustani';
+print '</button>';
+print '<button class="seup-btn seup-btn-primary" onclick="confirmTagSelection()">';
+print '<i class="fas fa-check"></i> Potvrdi';
+print '</button>';
+print '</div>';
+print '</div>';
+print '</div>';
+print '</div>';
+
+// Add CSS for Tags Modal
+print '<style>';
+print '.seup-tags-modal {';
+print '  position: fixed;';
+print '  top: 0;';
+print '  left: 0;';
+print '  width: 100%;';
+print '  height: 100%;';
+print '  background: rgba(0, 0, 0, 0.5);';
+print '  z-index: 99999;';
+print '  display: none;';
+print '  align-items: center;';
+print '  justify-content: center;';
+print '  backdrop-filter: blur(4px);';
+print '}';
+print '.seup-tags-modal.show { display: flex; }';
+print '.seup-tags-modal-content {';
+print '  background: white;';
+print '  border-radius: 12px;';
+print '  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);';
+print '  max-width: 600px;';
+print '  width: 90%;';
+print '  max-height: 80vh;';
+print '  overflow: hidden;';
+print '}';
+print '.seup-tags-modal-header {';
+print '  display: flex;';
+print '  align-items: center;';
+print '  justify-content: space-between;';
+print '  padding: 16px 24px;';
+print '  background: var(--seup-primary-600);';
+print '  color: white;';
+print '}';
+print '.seup-tags-modal-title {';
+print '  margin: 0;';
+print '  font-size: 1.125rem;';
+print '  font-weight: 600;';
+print '  display: flex;';
+print '  align-items: center;';
+print '  gap: 8px;';
+print '}';
+print '.seup-tags-modal-close {';
+print '  background: none;';
+print '  border: none;';
+print '  color: white;';
+print '  cursor: pointer;';
+print '  padding: 8px;';
+print '  border-radius: 4px;';
+print '  transition: all 0.2s ease;';
+print '  width: 32px;';
+print '  height: 32px;';
+print '  display: flex;';
+print '  align-items: center;';
+print '  justify-content: center;';
+print '}';
+print '.seup-tags-modal-close:hover {';
+print '  background: rgba(255, 255, 255, 0.1);';
+print '}';
+print '.seup-tags-modal-body {';
+print '  padding: 24px;';
+print '  max-height: 60vh;';
+print '  overflow-y: auto;';
+print '}';
+print '.seup-tags-search {';
+print '  margin-bottom: 16px;';
+print '}';
+print '.seup-tags-search-icon {';
+print '  position: absolute;';
+print '  left: 12px;';
+print '  top: 50%;';
+print '  transform: translateY(-50%);';
+print '  color: var(--seup-gray-400);';
+print '  pointer-events: none;';
+print '}';
+print '.seup-tags-search input {';
+print '  padding-left: 40px;';
+print '}';
+print '.seup-tags-grid-modal {';
+print '  display: grid;';
+print '  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));';
+print '  gap: 12px;';
+print '}';
+print '.seup-tag-option-modal {';
+print '  background: white;';
+print '  border: 2px solid var(--seup-gray-300);';
+print '  color: var(--seup-gray-700);';
+print '  padding: 12px 16px;';
+print '  border-radius: 8px;';
+print '  font-size: 0.875rem;';
+print '  font-weight: 500;';
+print '  transition: all 0.2s ease;';
+print '  cursor: pointer;';
+print '  text-align: center;';
+print '  display: flex;';
+print '  align-items: center;';
+print '  justify-content: center;';
+print '  gap: 8px;';
+print '  min-height: 44px;';
+print '}';
+print '.seup-tag-option-modal:hover {';
+print '  background: var(--seup-primary-50);';
+print '  border-color: var(--seup-primary-400);';
+print '  color: var(--seup-primary-700);';
+print '  transform: translateY(-2px);';
+print '  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);';
+print '}';
+print '.seup-tag-option-modal.selected {';
+print '  background: var(--seup-primary-600);';
+print '  border-color: var(--seup-primary-600);';
+print '  color: white;';
+print '  transform: translateY(-2px);';
+print '  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
+print '}';
+print '.seup-tags-modal-footer {';
+print '  display: flex;';
+print '  justify-content: space-between;';
+print '  align-items: center;';
+print '  padding: 16px 24px;';
+print '  background: var(--seup-gray-50);';
+print '  border-top: 1px solid var(--seup-gray-200);';
+print '}';
+print '.seup-tags-count {';
+print '  font-size: 0.875rem;';
+print '  color: var(--seup-gray-500);';
+print '  display: flex;';
+print '  align-items: center;';
+print '  gap: 8px;';
+print '}';
+print '</style>';
 // End of page
 llxFooter();
 $db->close();
@@ -1063,130 +1219,6 @@ $db->close();
       fetch("novi_predmet.php", {
           method: "POST",
           body: formData
-        })
-        .then(async response => {
-          const responseText = await response.text(); // First get raw text
-
-          try {
-            // Try to parse as JSON
-            return JSON.parse(responseText);
-          } catch (e) {
-            // If parsing fails, throw custom error with server response
-            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
-          }
-        })
-        .then(data => {
-          if (data.success) {
-            alert("Predmet je uspješno otvoren.");
-
-            // Reset klasa display (preserves your klasa/sadrzaj functionality)
-            resetKlasaDisplay();
-
-            // Clear main date inputs
-            const mainDateInput = document.querySelector('input[name="datumOtvaranja"]');
-            if (mainDateInput) {
-              mainDateInput.value = '';
-              mainDateInput.dispatchEvent(new Event('change'));
-            }
-
-            // Clear customer date inputs
-            const strankaDateInput = document.querySelector('input[name="strankaDatumOtvaranja"]');
-            if (strankaDateInput) {
-              strankaDateInput.value = '';
-              strankaDateInput.dispatchEvent(new Event('change'));
-            }
-
-            // Reset Stranka section
-            const strankaCheckbox = document.getElementById('strankaCheck');
-            const strankaField = document.getElementById('stranka');
-            const strankaError = document.getElementById('strankaError');
-
-            if (strankaCheckbox && strankaField && strankaError) {
-              strankaCheckbox.checked = false;
-
-              // Reset Select2 if it exists
-              if (strankaField.hasAttribute('data-select2-id')) {
-                $(strankaField).val(null).trigger('change');
-              } else {
-                strankaField.value = '';
-              }
-
-              strankaField.disabled = true;
-              strankaField.classList.remove('is-invalid');
-              strankaError.style.display = 'none';
-
-              // Update button styles
-              const strankaCheckLabel = document.getElementById('strankaCheckLabel');
-              if (strankaCheckLabel) {
-                strankaCheckLabel.classList.remove('seup-btn-primary');
-                strankaCheckLabel.classList.add('seup-btn-secondary');
-              }
-
-              // Hide date container
-              const container = document.getElementById('strankaDatumContainer');
-              if (container) container.style.display = 'none';
-            }
-
-            // Clear case title
-            document.getElementById("naziv").value = "";
-            
-            // Reset selected tags
-            selectedTags.clear();
-            tagsModal.updateSelectedTagsDisplay();
-          } else {
-            console.error("Error otvaranje predmeta NOVI_PREDMET:", data.error);
-            alert("Greška pri otvaranju predmeta: NOVI_PREDMET " + data.error);
-          }
-        })
-        .catch(error => {
-          console.error("CATCH otvaranje predmeta:NOVI_PREDMET", error);
-          alert("Došlo je do greške: " + error.message);
-        });
-    });
-
-    // Update on zaposlenik change
-    if (zaposlenikSelect) {
-      zaposlenikSelect.addEventListener("change", function() {
-        currentValues.zaposlenik = this.value || "DOS";
-        updateKlasaValue();
-        checkIfPredmetExists();
-      });
-    }
-
-    // Initial update to set the default state
-    updateKlasaValue();
-
-    // Tag selection functionality
-    const openTagsModalBtn = document.getElementById("openTagsModal");
-    const selectedTagsContainer = document.getElementById("selected-tags");
-    const tagsPlaceholder = document.getElementById("tags-placeholder");
-    const selectedTags = new Set();
-    const tempSelectedTags = new Set(); // For modal selection
-    
-    // Enhanced tag colors array with more variety
-    const tagColors = [
-      { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6', name: 'blue' },
-      { bg: '#f3e8ff', text: '#7c3aed', border: '#8b5cf6', name: 'purple' },
-      { bg: '#dcfce7', text: '#16a34a', border: '#22c55e', name: 'green' },
-      { bg: '#fed7aa', text: '#ea580c', border: '#f97316', name: 'orange' },
-      { bg: '#fce7f3', text: '#db2777', border: '#ec4899', name: 'pink' },
-      { bg: '#ccfbf1', text: '#0d9488', border: '#14b8a6', name: 'teal' },
-      { bg: '#fef3c7', text: '#d97706', border: '#f59e0b', name: 'amber' },
-      { bg: '#e0e7ff', text: '#4f46e5', border: '#6366f1', name: 'indigo' },
-      { bg: '#fecaca', text: '#dc2626', border: '#ef4444', name: 'red' },
-      { bg: '#d1fae5', text: '#059669', border: '#10b981', name: 'emerald' },
-      { bg: '#e0f2fe', text: '#0284c7', border: '#0ea5e9', name: 'sky' },
-      { bg: '#fef7cd', text: '#ca8a04', border: '#eab308', name: 'yellow' }
-    ];
-    
-    let colorIndex = 0;
-
-    // Open tags modal
-    if (openTagsModalBtn) {
-      openTagsModalBtn.addEventListener("click", function() {
-        openTagsModal();
-      });
-    }
 
     // Remove tag from selection
     if (selectedTagsContainer) {
