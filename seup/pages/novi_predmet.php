@@ -337,34 +337,44 @@ print '</div>';
 print '</div>';
 
 // Tags Modal
-print '<div id="tagsModal" class="seup-modal" style="display: none;">';
+print '<div id="seupTagsModal" class="seup-modal" style="display: none;">';
 print '<div class="seup-modal-overlay"></div>';
 print '<div class="seup-modal-content" style="max-width: 600px;">';
 print '<div class="seup-modal-header">';
-print '<h3 class="seup-modal-title"><i class="fas fa-tags"></i> Odaberi Oznake</h3>';
-print '<button type="button" class="seup-modal-close" id="closeTagsModal">';
+print '<h3 class="seup-modal-title">';
+print '<i class="fas fa-tags"></i> Odaberi Oznake';
+print '</h3>';
+print '<button type="button" class="seup-modal-close" onclick="closeTagsModal()">';
 print '<i class="fas fa-times"></i>';
 print '</button>';
 print '</div>';
 print '<div class="seup-modal-body">';
 print '<div class="seup-form-group">';
 print '<div style="position: relative;">';
-print '<input type="text" class="seup-input" placeholder="Pretraži oznake..." id="searchTagsInput" style="padding-left: var(--seup-space-10);">';
+print '<input type="text" class="seup-input" placeholder="Pretraži oznake..." id="tagsSearchInput" style="padding-left: var(--seup-space-10);">';
 print '<i class="fas fa-search" style="position: absolute; left: var(--seup-space-3); top: 50%; transform: translateY(-50%); color: var(--seup-gray-400);"></i>';
 print '</div>';
 print '</div>';
-print '<div id="tagsGrid" class="seup-grid seup-grid-3" style="max-height: 300px; overflow-y: auto;">';
-// Tags will be populated by JavaScript
+print '<div id="tagsGridContainer" class="seup-grid seup-grid-3" style="max-height: 300px; overflow-y: auto;">';
+foreach ($tags as $tag) {
+    print '<div class="seup-tag-option-modal" data-tag-id="' . $tag->rowid . '">';
+    print '<i class="fas fa-tag"></i> ' . htmlspecialchars($tag->tag);
+    print '</div>';
+}
 print '</div>';
 print '</div>';
 print '<div class="seup-modal-footer">';
 print '<div class="seup-flex seup-items-center seup-gap-2">';
-print '<i class="fas fa-check-circle" style="color: var(--seup-success);"></i>';
+print '<i class="fas fa-check-circle"></i>';
 print '<span id="selectedTagsCount">0 odabrano</span>';
 print '</div>';
 print '<div class="seup-flex seup-gap-2">';
-print '<button type="button" class="seup-btn seup-btn-secondary" id="cancelTagsBtn">Odustani</button>';
-print '<button type="button" class="seup-btn seup-btn-primary" id="confirmTagsBtn">Potvrdi</button>';
+print '<button type="button" class="seup-btn seup-btn-secondary" onclick="closeTagsModal()">';
+print '<i class="fas fa-times"></i> Odustani';
+print '</button>';
+print '<button type="button" class="seup-btn seup-btn-primary" onclick="confirmTagSelection()">';
+print '<i class="fas fa-check"></i> Potvrdi';
+print '</button>';
 print '</div>';
 print '</div>';
 print '</div>';
@@ -1147,13 +1157,11 @@ $db->close();
     updateKlasaValue();
 
     // Tag selection functionality
-    const tagsDropdown = document.getElementById("tagsDropdown");
-    const tagsDropdownMenu = document.getElementById("tags-dropdown-menu");
-    const availableTags = document.getElementById("available-tags");
-    const addTagBtn = document.getElementById("add-tag-btn");
+    const openTagsModalBtn = document.getElementById("openTagsModal");
     const selectedTagsContainer = document.getElementById("selected-tags");
     const tagsPlaceholder = document.getElementById("tags-placeholder");
     const selectedTags = new Set();
+    const tempSelectedTags = new Set(); // For modal selection
     
     // Enhanced tag colors array with more variety
     const tagColors = [
@@ -1173,195 +1181,12 @@ $db->close();
     
     let colorIndex = 0;
 
-    
-    // Tags Modal Implementation
-    class SEUPTagsModal {
-      constructor() {
-        this.modal = document.getElementById('tagsModal');
-        this.tagsGrid = document.getElementById('tagsGrid');
-        this.searchInput = document.getElementById('searchTagsInput');
-        this.selectedTagsCount = document.getElementById('selectedTagsCount');
-        this.availableTags = <?php echo json_encode($tags); ?>;
-        this.tempSelectedTags = new Set();
-        
-        this.init();
-      }
-      
-      init() {
-        // Open modal button
-        document.getElementById('openTagsModal').addEventListener('click', () => {
-          this.show();
-        });
-        
-        // Close modal events
-        document.getElementById('closeTagsModal').addEventListener('click', () => this.hide());
-        document.getElementById('cancelTagsBtn').addEventListener('click', () => this.hide());
-        document.querySelector('.seup-modal-overlay').addEventListener('click', () => this.hide());
-        
-        // Confirm selection
-        document.getElementById('confirmTagsBtn').addEventListener('click', () => this.confirmSelection());
-        
-        // Search functionality
-        this.searchInput.addEventListener('input', (e) => this.filterTags(e.target.value));
-        
-        // Escape key to close
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && this.modal.style.display === 'flex') {
-            this.hide();
-          }
-        });
-      }
-      
-      show() {
-        // Copy current selection to temp
-        this.tempSelectedTags = new Set(selectedTags);
-        
-        this.modal.style.display = 'flex';
-        this.renderTags();
-        this.updateSelectedCount();
-        
-        // Focus search input
-        setTimeout(() => {
-          this.searchInput.focus();
-        }, 100);
-      }
-      
-      hide() {
-        this.modal.style.display = 'none';
-        this.searchInput.value = '';
-      }
-      
-      renderTags() {
-        this.tagsGrid.innerHTML = '';
-        
-        if (this.availableTags.length === 0) {
-          this.tagsGrid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: var(--seup-space-8); color: var(--seup-gray-500);">
-              <i class="fas fa-tags" style="font-size: 2rem; margin-bottom: var(--seup-space-2);"></i>
-              <p>Nema dostupnih oznaka</p>
-              <p style="font-size: 0.875rem;">Dodajte oznake u <a href="tagovi.php">upravljanju oznakama</a></p>
-            </div>
-          `;
-          return;
-        }
-        
-        this.availableTags.forEach((tag, index) => {
-          const color = tagColors[index % tagColors.length];
-          const isSelected = this.tempSelectedTags.has(tag.rowid.toString());
-          
-          const tagElement = document.createElement('div');
-          tagElement.className = `seup-tag-option-modal ${isSelected ? 'selected' : ''}`;
-          tagElement.dataset.tagId = tag.rowid;
-          tagElement.dataset.tagName = tag.tag.toLowerCase();
-          tagElement.style.borderColor = color.border;
-          
-          if (isSelected) {
-            tagElement.style.background = color.bg;
-            tagElement.style.color = color.text;
-          }
-          
-          tagElement.innerHTML = `
-            <i class="fas fa-tag" style="color: ${color.border};"></i>
-            ${tag.tag}
-          `;
-          
-          tagElement.addEventListener('click', () => {
-            this.toggleTag(tag.rowid.toString(), tag.tag, tagElement, color);
-          });
-          
-          this.tagsGrid.appendChild(tagElement);
-        });
-      }
-      
-      toggleTag(tagId, tagName, element, color) {
-        if (this.tempSelectedTags.has(tagId)) {
-          this.tempSelectedTags.delete(tagId);
-          element.classList.remove('selected');
-          element.style.background = '';
-          element.style.color = '';
-        } else {
-          this.tempSelectedTags.add(tagId);
-          element.classList.add('selected');
-          element.style.background = color.bg;
-          element.style.color = color.text;
-        }
-        
-        this.updateSelectedCount();
-      }
-      
-      updateSelectedCount() {
-        const count = this.tempSelectedTags.size;
-        this.selectedTagsCount.textContent = `${count} odabrano`;
-      }
-      
-      filterTags(searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const tagElements = this.tagsGrid.querySelectorAll('.seup-tag-option-modal');
-        
-        tagElements.forEach(element => {
-          const tagName = element.dataset.tagName;
-          if (tagName.includes(term)) {
-            element.style.display = 'flex';
-          } else {
-            element.style.display = 'none';
-          }
-        });
-      }
-      
-      confirmSelection() {
-        // Update global selectedTags
-        selectedTags.clear();
-        this.tempSelectedTags.forEach(tagId => selectedTags.add(tagId));
-        
-        // Update display
-        this.updateSelectedTagsDisplay();
-        
-        this.hide();
-        
-        // Show success message
-        if (window.seupNotifications) {
-          window.seupNotifications.show(`Odabrano ${selectedTags.size} oznaka`, 'success', 2000);
-        }
-      }
-      
-      updateSelectedTagsDisplay() {
-        selectedTagsContainer.innerHTML = '';
-        
-        if (selectedTags.size === 0) {
-          selectedTagsContainer.innerHTML = '<span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>';
-          return;
-        }
-        
-        let colorIndex = 0;
-        selectedTags.forEach(tagId => {
-          const tag = this.availableTags.find(t => t.rowid.toString() === tagId);
-          if (tag) {
-            const color = tagColors[colorIndex % tagColors.length];
-            colorIndex++;
-            
-            const tagElement = document.createElement("div");
-            tagElement.className = `seup-tag seup-tag-removable seup-tag-${color.name} seup-fade-in`;
-            tagElement.dataset.tagId = tagId;
-            tagElement.style.background = color.bg;
-            tagElement.style.color = color.text;
-            tagElement.style.borderColor = color.border;
-            
-            tagElement.innerHTML = `
-              <i class="fas fa-tag"></i>
-              <span class="tag-text">${tag.tag}</span>
-              <button type="button" class="seup-tag-remove" aria-label="Remove">
-                <i class="fas fa-times" style="font-size: 0.7rem;"></i>
-              </button>
-            `;
-            
-            selectedTagsContainer.appendChild(tagElement);
-          }
-        });
-      }
+    // Open tags modal
+    if (openTagsModalBtn) {
+      openTagsModalBtn.addEventListener("click", function() {
+        openTagsModal();
+      });
     }
-    
-    // Initialize tags modal
-    const tagsModal = new SEUPTagsModal();
 
     // Remove tag from selection
     if (selectedTagsContainer) {
@@ -1386,6 +1211,176 @@ $db->close();
         }
       });
     }
+  });
+
+  // Tags Modal Functions
+  function openTagsModal() {
+    const modal = document.getElementById('seupTagsModal');
+    
+    // Copy current selection to temp selection
+    tempSelectedTags.clear();
+    selectedTags.forEach(tagId => tempSelectedTags.add(tagId));
+    
+    // Update modal display
+    updateModalTagsDisplay();
+    updateSelectedCount();
+    
+    // Show modal
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Focus search input
+    setTimeout(() => {
+      const searchInput = document.getElementById('tagsSearchInput');
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }, 100);
+  }
+  
+  function closeTagsModal() {
+    const modal = document.getElementById('seupTagsModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    
+    // Clear search
+    const searchInput = document.getElementById('tagsSearchInput');
+    if (searchInput) {
+      searchInput.value = '';
+      filterModalTags('');
+    }
+  }
+  
+  function updateModalTagsDisplay() {
+    const tagOptions = document.querySelectorAll('.seup-tag-option-modal');
+    tagOptions.forEach(option => {
+      const tagId = option.dataset.tagId;
+      if (tempSelectedTags.has(tagId)) {
+        option.classList.add('selected');
+      } else {
+        option.classList.remove('selected');
+      }
+    });
+  }
+  
+  function updateSelectedCount() {
+    const countElement = document.getElementById('selectedTagsCount');
+    if (countElement) {
+      countElement.textContent = `${tempSelectedTags.size} odabrano`;
+    }
+  }
+  
+  function confirmTagSelection() {
+    // Copy temp selection to actual selection
+    selectedTags.clear();
+    tempSelectedTags.forEach(tagId => selectedTags.add(tagId));
+    
+    // Update main display
+    updateMainTagsDisplay();
+    
+    // Close modal
+    closeTagsModal();
+  }
+  
+  function updateMainTagsDisplay() {
+    // Clear current display
+    selectedTagsContainer.innerHTML = '';
+    
+    if (selectedTags.size === 0) {
+      selectedTagsContainer.innerHTML = '<span class="seup-text-small" style="color: var(--seup-gray-500); align-self: center;" id="tags-placeholder">Odabrane oznake će se prikazati ovdje</span>';
+      return;
+    }
+    
+    // Add selected tags
+    let colorIndex = 0;
+    selectedTags.forEach(tagId => {
+      const tagOption = document.querySelector(`[data-tag-id="${tagId}"]`);
+      if (tagOption) {
+        const tagName = tagOption.textContent.trim();
+        const color = tagColors[colorIndex % tagColors.length];
+        colorIndex++;
+        
+        const tagElement = document.createElement("div");
+        tagElement.className = `seup-tag seup-tag-removable seup-tag-${color.name} seup-fade-in`;
+        tagElement.dataset.tagId = tagId;
+        tagElement.style.background = color.bg;
+        tagElement.style.color = color.text;
+        tagElement.style.borderColor = color.border;
+        
+        tagElement.innerHTML = `
+          <i class="fas fa-tag"></i>
+          <span class="tag-text">${tagName}</span>
+          <button type="button" class="seup-tag-remove" aria-label="Remove">
+            <i class="fas fa-times" style="font-size: 0.7rem;"></i>
+          </button>
+        `;
+        
+        selectedTagsContainer.appendChild(tagElement);
+      }
+    });
+  }
+  
+  function filterModalTags(searchTerm) {
+    const tagOptions = document.querySelectorAll('.seup-tag-option-modal');
+    const term = searchTerm.toLowerCase();
+    
+    tagOptions.forEach(option => {
+      const tagName = option.textContent.toLowerCase();
+      if (tagName.includes(term)) {
+        option.style.display = 'flex';
+      } else {
+        option.style.display = 'none';
+      }
+    });
+  }
+  
+  // Initialize modal functionality when DOM is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    // Tag option click handling
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.seup-tag-option-modal')) {
+        const option = e.target.closest('.seup-tag-option-modal');
+        const tagId = option.dataset.tagId;
+        
+        if (tempSelectedTags.has(tagId)) {
+          tempSelectedTags.delete(tagId);
+          option.classList.remove('selected');
+        } else {
+          tempSelectedTags.add(tagId);
+          option.classList.add('selected');
+        }
+        
+        updateSelectedCount();
+      }
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('tagsSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', function(e) {
+        filterModalTags(e.target.value);
+      });
+    }
+    
+    // Close modal on overlay click
+    const modal = document.getElementById('seupTagsModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target.classList.contains('seup-modal-overlay')) {
+          closeTagsModal();
+        }
+      });
+    }
+    
+    // Escape key to close modal
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('seupTagsModal');
+        if (modal && modal.style.display === 'flex') {
+          closeTagsModal();
+        }
+      }
+    });
   });
 
   // document.querySelector('[data-action="generate_pdf"]').addEventListener('click', function() { // TODO ostavi za kasnije (( RADI ))
