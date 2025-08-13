@@ -1246,6 +1246,164 @@ $db->close();
   });
 
   // Tags Modal Functions
+  window.openTagsModal = function() {
+    const modal = document.getElementById('tagsModal');
+    const container = document.getElementById('tagsGridContainer');
+    
+    // Copy current selection to temp
+    tempSelectedTags.clear();
+    selectedTags.forEach(id => tempSelectedTags.add(id));
+    
+    // Load available tags
+    const availableTags = <?php echo json_encode($tags); ?>;
+    
+    container.innerHTML = '';
+    availableTags.forEach(tag => {
+      const tagElement = document.createElement('div');
+      tagElement.className = 'seup-tag-option-modal';
+      tagElement.dataset.tagId = tag.rowid;
+      tagElement.innerHTML = `<i class="fas fa-tag"></i> ${tag.tag}`;
+      
+      if (tempSelectedTags.has(tag.rowid.toString())) {
+        tagElement.classList.add('selected');
+      }
+      
+      tagElement.addEventListener('click', function() {
+        const tagId = this.dataset.tagId;
+        if (tempSelectedTags.has(tagId)) {
+          tempSelectedTags.delete(tagId);
+          this.classList.remove('selected');
+        } else {
+          tempSelectedTags.add(tagId);
+          this.classList.add('selected');
+        }
+        updateSelectedCount();
+      });
+      
+      container.appendChild(tagElement);
+    });
+    
+    updateSelectedCount();
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    // Focus search input
+    setTimeout(() => {
+      document.getElementById('tagsSearchInput').focus();
+    }, 100);
+  };
+  
+  window.closeTagsModal = function() {
+    const modal = document.getElementById('tagsModal');
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+  };
+  
+  window.confirmTagSelection = function() {
+    // Update main selection
+    selectedTags.clear();
+    tempSelectedTags.forEach(id => selectedTags.add(id));
+    
+    updateMainTagsDisplay();
+    closeTagsModal();
+  };
+  
+  function updateSelectedCount() {
+    const countElement = document.getElementById('selectedCount');
+    if (countElement) {
+      const count = tempSelectedTags.size;
+      countElement.textContent = `${count} odabrano`;
+    }
+  }
+  
+  function updateMainTagsDisplay() {
+    const container = document.getElementById('selected-tags');
+    const placeholder = document.getElementById('tags-placeholder');
+    
+    // Clear existing tags (except placeholder)
+    container.querySelectorAll('.seup-tag').forEach(tag => tag.remove());
+    
+    if (selectedTags.size === 0) {
+      placeholder.style.display = 'block';
+      return;
+    }
+    
+    placeholder.style.display = 'none';
+    
+    const availableTags = <?php echo json_encode($tags); ?>;
+    
+    selectedTags.forEach(tagId => {
+      const tag = availableTags.find(t => t.rowid.toString() === tagId);
+      if (tag) {
+        const color = tagColors[colorIndex % tagColors.length];
+        colorIndex++;
+        
+        const tagElement = document.createElement('div');
+        tagElement.className = 'seup-tag seup-tag-removable';
+        tagElement.dataset.tagId = tagId;
+        tagElement.style.background = color.bg;
+        tagElement.style.color = color.text;
+        tagElement.style.borderColor = color.border;
+        
+        tagElement.innerHTML = `
+          <i class="fas fa-tag"></i>
+          <span class="tag-text">${tag.tag}</span>
+          <button type="button" class="seup-tag-remove" onclick="removeTag('${tagId}')" aria-label="Remove">
+            <i class="fas fa-times" style="font-size: 0.7rem;"></i>
+          </button>
+        `;
+        
+        container.appendChild(tagElement);
+      }
+    });
+  }
+  
+  window.removeTag = function(tagId) {
+    selectedTags.delete(tagId);
+    updateMainTagsDisplay();
+  };
+  
+  // Search functionality in modal
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('tagsSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const tagElements = document.querySelectorAll('.seup-tag-option-modal');
+        
+        tagElements.forEach(element => {
+          const tagName = element.textContent.toLowerCase();
+          if (tagName.includes(searchTerm)) {
+            element.style.display = 'flex';
+          } else {
+            element.style.display = 'none';
+          }
+        });
+      });
+    }
+    
+    // Close modal on overlay click
+    const modal = document.getElementById('tagsModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          closeTagsModal();
+        }
+      });
+    }
+    
+    // Escape key to close modal
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('tagsModal');
+        if (modal && modal.classList.contains('show')) {
+          closeTagsModal();
+        }
+      }
+    });
+  });
+
+  // Tags Modal Functions
   function openTagsModal() {
     const modal = document.getElementById('seupTagsModal');
     
